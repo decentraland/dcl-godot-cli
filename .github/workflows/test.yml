@@ -1,0 +1,22 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  release:
+    types:
+      - created
+
+name: CI
+
+jobs: 
+  test-cli:
+    name: Test Decentraland-Godot CLI
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+    - name: Build docker images
+      run: docker build -t dcl-godot-cli .
+    - name: Run tests
+      run: docker run -v $(pwd):/app dcl-godot-cli
