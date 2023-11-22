@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-ARG DCL_GODOT_VERSION="v0.6.0-alpha"
+ARG DCL_GODOT_VERSION="v0.7.0-alpha"
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 ENV EXPLORER_PATH=/explorer
 RUN mkdir -p ${EXPLORER_PATH} \
     && cd ${EXPLORER_PATH} \
-    && wget -O explorer.zip https://github.com/decentraland/godot-explorer/releases/download/${DCL_GODOT_VERSION}/decentraland-godot-ubuntu-latest-1.zip \
+    && wget -O explorer.zip https://github.com/decentraland/godot-explorer/releases/download/${DCL_GODOT_VERSION}/decentraland-godot-ubuntu-latest.zip \
     && unzip explorer.zip \
     && chmod +x decentraland.godot.client.x86_64 \
     && rm explorer.zip

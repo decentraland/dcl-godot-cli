@@ -1,39 +1,87 @@
 import { exec } from "child_process";
 import { writeFile } from "fs/promises";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, rmSync } from "fs";
+import path from "path";
 
 let executionNumber = 0
 
-export function generateAvatars(addresses: string[]): Promise<string[]> {
+type OptionsGenerateAvatars = Partial<{
+  outputPath: string,
+  catalystBaseUrl: string
+  face: boolean,
+  faceWidth: number,
+  faceHeight: number,
+  width: number,
+  height: number,
+}>
+
+type AvatarGenerationResult = {
+  avatarPath: string,
+  facePath: string | undefined
+}
+
+type GodotAvatarPayload = {
+  destPath: string,
+  width: number | undefined,
+  height: number | undefined,
+  faceDestPath: string | undefined,
+  faceWidth: number | undefined,
+  faceHeight: number | undefined,
+  avatar: any
+}
+
+async function preparePayload(address: string, options: OptionsGenerateAvatars): Promise<GodotAvatarPayload> {
+  const response = await fetch(`${options.catalystBaseUrl}/lambdas/profiles/${address}`)
+  const data = await response.json()
+  const destPath = path.join(options.outputPath ?? '', `${address}.png`)
+  const faceDestPath = options.face ? path.join(options.outputPath ?? '', `${address}_face.png`) : undefined
+  return {
+    destPath,
+    width: options.width,
+    height: options.height,
+    faceDestPath,
+    faceWidth: options.faceWidth,
+    faceHeight: options.faceHeight,
+    avatar: data.avatars[0].avatar
+  }
+}
+
+export function generateAvatars(addresses: string[], _options?: OptionsGenerateAvatars): Promise<AvatarGenerationResult[]> {
+  // default values
+  const options = {
+    ..._options,
+    catalystBaseUrl: `https://peer.decentraland.org`
+  }
+
+
   return new Promise(async (resolve, reject) => {
-    if (!existsSync('output/')) mkdirSync('output')
-    if (!existsSync('input/')) mkdirSync('input')
-
+    // unique number for temp files
     executionNumber += 1
-    const catalystBaseUrl = `https://peer.decentraland.org`
 
-    let payload: any[] = []
-    let outputs: string[] = []
-    for (const address of addresses) {
-      // TODO: Can execute the request in parallel, and waiting them with Promise.all
-      const response = await fetch(`${catalystBaseUrl}/lambdas/profiles/${address}`)
-      const data = await response.json()
-      const destPath = `output/${address}.png`
-      payload.push({
-        destPath,
-        avatar: data.avatars[0].avatar
-      })
-      outputs.push(destPath)
+    // create directory if exists
+    if (options.outputPath && !existsSync(options.outputPath)) {
+      mkdirSync(options.outputPath)
     }
+
+    const promises = addresses.map(address => preparePayload(address, options));
+    const payloads: GodotAvatarPayload[] = await Promise.all(promises);
+
+    const results: AvatarGenerationResult[] = payloads.map((payload) => {
+      return {
+        avatarPath: payload.destPath,
+        facePath: payload.faceDestPath,
+      }
+    })
 
     const output = {
-      baseUrl: `${catalystBaseUrl}/content`,
-      payload
+      baseUrl: `${options.catalystBaseUrl}/content`,
+      payload: payloads
     }
-    await writeFile(`input/avatars${executionNumber}.json`, JSON.stringify(output))
+    const avatarDataPath = `temp-avatars${executionNumber}.json`
+    await writeFile(avatarDataPath, JSON.stringify(output))
     const explorerPath = process.env.EXPLORER_PATH || '.'
     const command = `
-      DISPLAY=:99 ${explorerPath}/decentraland.godot.client.x86_64 --rendering-driver opengl3 --avatar-renderer --avatars input/avatars${executionNumber}.json
+      DISPLAY=:99 ${explorerPath}/decentraland.godot.client.x86_64 --rendering-driver opengl3 --avatar-renderer --avatars ${avatarDataPath}
     `
     const areFilesCreated = (payload: any): boolean => {
       for (const avatar of payload) {
@@ -46,18 +94,19 @@ export function generateAvatars(addresses: string[]): Promise<string[]> {
 
     exec(command, (error, stdout, stderr) => {
       if (error) {
-        if (!areFilesCreated(payload)) {
+        if (!areFilesCreated(payloads)) {
           console.error(error, stderr)
           reject(error)
         }
       }
       if (stderr) {
-        if (!areFilesCreated(payload)) {
+        if (!areFilesCreated(payloads)) {
           console.error(stderr)
           reject(error)
         }
       }
-      resolve(outputs)
+      rmSync(avatarDataPath)
+      resolve(results)
     })
   })
 }
