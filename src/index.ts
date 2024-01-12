@@ -68,7 +68,7 @@ async function preparePayload(
     height: options.height,
     faceWidth: options.faceWidth,
     faceHeight: options.faceHeight,
-    avatar: profileWithAssetUrns(data),
+    avatar: profileWithAssetUrns(data).metadata.avatars[0].avatar,
   };
 }
 
