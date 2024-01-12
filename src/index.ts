@@ -1,23 +1,13 @@
-import { exec } from "child_process";
 import { writeFile } from "fs/promises";
-import { existsSync, mkdirSync, rmSync } from "fs";
 import path from "path";
 
-let executionNumber = 0;
-
-type OptionsGenerateAvatars = Partial<{
+type OptionsGenerateAvatars = {
   outputPath: string;
   catalystBaseUrl: string;
-  face: boolean;
   faceWidth: number;
   faceHeight: number;
   width: number;
   height: number;
-}>;
-
-type AvatarGenerationResult = {
-  avatarPath: string;
-  facePath: string | undefined;
 };
 
 type GodotAvatarPayload = {
@@ -68,16 +58,14 @@ async function preparePayload(
     `${options.catalystBaseUrl}/content/contents/${entity}`,
   );
   const data = await response.json();
-  const destPath = path.join(options.outputPath ?? "", `${entity}.png`);
-  const faceDestPath = options.face
-    ? path.join(options.outputPath ?? "", `${entity}_face.png`)
-    : undefined;
+  const destPath = path.join(options.outputPath, `${entity}.png`);
+  const faceDestPath = path.join(options.outputPath, `${entity}_face.png`);
 
   return {
     destPath,
+    faceDestPath,
     width: options.width,
     height: options.height,
-    faceDestPath,
     faceWidth: options.faceWidth,
     faceHeight: options.faceHeight,
     avatar: profileWithAssetUrns(data),
