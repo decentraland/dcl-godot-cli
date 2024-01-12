@@ -1,5 +1,5 @@
 #!/bin/bash
 /usr/bin/Xvfb -ac :99 -screen 0 1280x1024x24 &
 export DISPLAY=:99
-npm install
-npm run test
+decentraland.godot.client.x86_64 --rendering-driver opengl3 --avatar-renderer --avatars input.json
+echo "DONE"
