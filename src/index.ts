@@ -30,6 +30,36 @@ type GodotAvatarPayload = {
   avatar: any;
 };
 
+function splitUrnAndTokenId(urnReceived: string) {
+  const urnLength = urnReceived.split(":").length;
+
+  if (urnLength === 7) {
+    const lastColonIndex = urnReceived.lastIndexOf(":");
+    const urnValue = urnReceived.slice(0, lastColonIndex);
+    return { urn: urnValue, tokenId: urnReceived.slice(lastColonIndex + 1) };
+  } else {
+    return { urn: urnReceived, tokenId: undefined };
+  }
+}
+
+function profileWithAssetUrns(profile: any) {
+  return {
+    ...profile,
+    metadata: {
+      ...profile.metadata,
+      avatars: profile.metadata.avatars.map((av: any) => ({
+        ...av,
+        avatar: {
+          ...av.avatar,
+          wearables: av.avatar.wearables.map(
+            (wearable: any) => splitUrnAndTokenId(wearable).urn,
+          ),
+        },
+      })),
+    },
+  };
+}
+
 async function preparePayload(
   entity: string,
   options: OptionsGenerateAvatars,
@@ -42,6 +72,7 @@ async function preparePayload(
   const faceDestPath = options.face
     ? path.join(options.outputPath ?? "", `${entity}_face.png`)
     : undefined;
+
   return {
     destPath,
     width: options.width,
@@ -49,12 +80,11 @@ async function preparePayload(
     faceDestPath,
     faceWidth: options.faceWidth,
     faceHeight: options.faceHeight,
-    avatar: data.metadata,
+    avatar: profileWithAssetUrns(data),
   };
 }
 
 export async function main(): Promise<void> {
-  // default values
   const options = {
     catalystBaseUrl: `https://peer.decentraland.org`,
     outputPath: "output",
@@ -64,8 +94,7 @@ export async function main(): Promise<void> {
     faceHeight: 256,
   };
 
-  const entity = "bafkreiagiqh6hej6dpr3shqsob54jcdec5mhbtrpvxnpi3dqovzsfmitke";
-
+  const entity = process.argv[2];
   const output = {
     baseUrl: `${options.catalystBaseUrl}/content`,
     payload: [await preparePayload(entity, options)],
